@@ -1,10 +1,17 @@
 // Requires
+import generator from './generator'
+
 var yo = require('yo-yo')
 const uuidv1 = require('uuid/v1')
+const EventEmitter = require('events');
 
 // Global variables
 var numbers = []; // start empty 
-var el = list(numbers, update, deleteTodo, generate);
+var el = list(numbers, update, deleteTodo);
+
+const bus = new EventEmitter;
+
+generator(bus);
 
 // Generate Markup
 function list (items, onclick, deleteTodo){
@@ -16,8 +23,8 @@ function list (items, onclick, deleteTodo){
    </div>
    <ul id="todoList">     
     ${items.map(function(item){
-      if(item.status === 'pending'){        
-        return generate(item);                      
+      if(item.status === 'pending'){
+        generateTD(item);                      
        }
      })}
    </ul>
@@ -25,7 +32,7 @@ function list (items, onclick, deleteTodo){
    <ul id="doneList">
    ${items.map(function(item){
       if(item.status === 'done'){        
-        return deleteLi(item);                      
+        return deleteLiDN(item);                      
        }
      })}     
    </ul>
@@ -33,19 +40,19 @@ function list (items, onclick, deleteTodo){
 }
 
 // Return List items using Jojo with delete checkbox
-function generate(item){
-  return yo`<li id=${item.id}>
-      ${item.value}
-      <input type="checkbox" onclick=${deleteTodo} class="btn">
-      </li>`
+function generateTD(item){
+  console.log("Emmit: todo");
+  bus.emit('todo', item)
 }
 
 // Return List items Using Jojo with delete button
-function deleteLi(item){
-  return yo`<li id=${item.id}>
-    ${item.value}
-    <button onclick=${deleteTodo} class="btn">Pending</button>
-    </li>`
+function generateDN(item){
+  bus.emit('done', item);
+}
+
+// Change status of state objects
+function deleteTodo(ev){
+  bus.emit('delete', ev);
 }
 
 // Create state object and updates markup
@@ -55,34 +62,23 @@ function update () {
    todo.id = uuidv1();
    todo.value = document.getElementById("todoVal").value;
    todo.status = 'pending';
+   // state = Object.assign(state, { todos: [... state.todos, todo]})
 
  numbers.push(todo)
- 
+
  // construct a new list and efficiently diff+morph it into the one in the DOM
  var newList = list(numbers, update, deleteTodo)
  yo.update(el, newList)
 }
 
-// Change status of state objects
-function deleteTodo(ev){
- var id = ev.target.parentNode.getAttribute('id');
-
- numbers = numbers.filter(function(el){
-   if(el.id === id){
-     if(el.status === "pending"){
-       el.status = "done";
-     }
-     else{
-       el.status = "pending";
-     }
-   }
-   return true;
- })
-
- // Main Update
- var newList = list(numbers, update, deleteTodo);
- yo.update(el, newList)
+function generateDone(){
+  bus.emit('done');
 }
+
+// construct a new list and efficiently diff+morph it into the one in the DOM
+ var newList = list(numbers, update, deleteTodo)
+ yo.update(el, newList)
+
 
 // Append Markup
 document.body.appendChild(el)
